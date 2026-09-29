@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Formlabs</title>
+<link rel="preload" href="fonts/Pixter-ArchitektBold.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face {
+    font-family: 'Pixter Architekt';
+    src: url('fonts/Pixter-Architekt.woff2') format('woff2'), url('fonts/Pixter-Architekt.ttf') format('truetype');
+    font-weight: 400; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Pixter Architekt';
+    src: url('fonts/Pixter-ArchitektBold.woff2') format('woff2'), url('fonts/Pixter-ArchitektBold.ttf') format('truetype');
+    font-weight: 700; font-display: swap;
+  }
+
+  :root {
+    --bg: #0e0e0d;
+    --fg: #f5f4f0;
+    --muted: rgba(245, 244, 240, 0.72);
+    --accent: #ff6101;
+    --font: 'Pixter Architekt', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #ripple { position: fixed; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .8s ease; }
+  #ripple.ready { opacity: 1; }
+  .veil {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 30%, rgba(0,0,0,.55) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,.35));
+  }
+
+  .stage {
+    position: relative; z-index: 1;
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    padding: clamp(24px, 6vh, 72px) 16px clamp(24px, 5vh, 56px);
+    text-align: center;
+    opacity: 0; transition: opacity .6s ease;
+  }
+  .stage.ready { opacity: 1; }
+
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.5rem, 4.6vw, 3.75rem);
+    line-height: 1.1;
+    letter-spacing: .01em;
+    max-width: 18ch;
+    margin: 0 auto;
+    text-wrap: balance;
+  }
+
+  .center {
+    align-self: center;
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(20px, 4vh, 40px);
+  }
+
+  .countdown {
+    display: flex; align-items: flex-start; justify-content: center;
+    font-weight: 700;
+    font-size: clamp(2.75rem, 12.5vw, 10.5rem);
+    line-height: 1;
+  }
+  .group { display: flex; flex-direction: column; align-items: center; }
+  .digits { display: flex; }
+  /* Pixter's "1" is narrower than other digits; fixed cells stop the layout jittering */
+  .digit { display: inline-block; width: .68em; text-align: center; }
+  .sep { width: .32em; text-align: center; opacity: .5; }
+  .label {
+    font-weight: 400;
+    font-size: clamp(.625rem, 1.25vw, 1rem);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: .9em;
+  }
+
+  .date {
+    font-size: clamp(.8125rem, 1.5vw, 1.25rem);
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted);
+    margin-top: clamp(10px, 2vh, 18px);
+  }
+  .date-part { display: inline-block; } /* each part wraps as a unit */
+  .date .local { color: var(--fg); }
+
+  .cta {
+    display: inline-flex; align-items: center; gap: .6em;
+    font-family: var(--font); font-weight: 700;
+    font-size: clamp(.875rem, 1.4vw, 1.0625rem);
+    letter-spacing: .06em; text-transform: uppercase;
+    color: #111110; background: var(--fg);
+    text-decoration: none;
+    padding: .95em 1.5em;
+    border-radius: 6px;
+    transition: background-color .2s ease, transform .2s ease;
+  }
+  .cta:hover { background: #fff; transform: translateY(-1px); }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .cta svg { width: 1.35em; height: 1.35em; flex: none; }
+  @media (max-width: 520px) {
+    .sep { width: .18em; }
+    .label { letter-spacing: .06em; }
+  }
+  @media (max-height: 460px) {
+    .stage { padding-top: 16px; padding-bottom: 16px; }
+    .countdown { font-size: clamp(2.5rem, 18vh, 7rem); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cta, #ripple, .stage { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="ripple" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+
+<main class="stage" id="stage">
+  <header>
+    <h1 data-i18n="headline"></h1>
+    <p class="date" id="launch-date"></p>
+  </header>
+
+  <div class="center">
+    <div class="countdown" id="countdown" role="timer" aria-hidden="true"></div>
+    <a class="cta" id="cta" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff0033" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8Z"/><path fill="#fff" d="m9.6 15.6 6.3-3.6-6.3-3.6Z"/></svg>
+      <span id="cta-label"></span>
+    </a>
+  </div>
+</main>
+
+<script src="ripple.js"></script>
+<script>
+(function () {
+  // ---- Page config (non-translatable) ----
+  var CONFIG = {
+    launchAt: '2026-10-13T09:00:00-04:00',   // Oct 13, 2026 9:00 AM ET (EDT)
+    launchTimeZone: 'America/New_York',
+    youtubeUrl: 'https://www.youtube.com/',  // placeholder
+    background: 'bg.jpg',                    // null uses the generated grid placeholder
+    defaultLang: 'en',
+    ripple: {
+      brushSize: 155, rings: 2, dispersion: 1, spacing: 5,
+      strength: 0.2, swirl: 1, spread: 5, fade: 3,
+      grayscale: false, tint: '#ff6101', tintAmount: 0.1,
+      quality: 'low', ambient: true
+    }
+  };
+
+  var params = new URLSearchParams(location.search);
+  var target = new Date(CONFIG.launchAt).getTime();
+
+  // ---- i18n: ?lang=de-DE tries de-DE.json, then de.json, then en.json ----
+  function loadStrings() {
+    var req = (params.get('lang') || document.documentElement.lang || CONFIG.defaultLang).replace('_', '-');
+    var tries = [req, req.split('-')[0], CONFIG.defaultLang].filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+    function attempt(i) {
+      if (i >= tries.length) return Promise.reject(new Error('No strings found'));
+      return fetch('i18n/' + tries[i].toLowerCase() + '.json', { cache: 'no-cache' })
+        .then(function (r) { if (!r.ok) throw r; return r.json().then(function (s) { return { lang: tries[i], s: s }; }); })
+        .catch(function () { return attempt(i + 1); });
+    }
+    return attempt(0);
+  }
+
+  function get(obj, path) {
+    return path.split('.').reduce(function (o, k) { return o && o[k]; }, obj);
+  }
+
+  // ---- Countdown ----
+  var countdownEl = document.getElementById('countdown');
+  var cells = null;
+
+  function buildCountdown(s) {
+    var units = ['days', 'hours', 'minutes', 'seconds'];
+    countdownEl.innerHTML = '';
+    cells = {};
+    units.forEach(function (u, i) {
+      if (i) {
+        var sep = document.createElement('span');
+        sep.className = 'sep'; sep.textContent = ':';
+        countdownEl.appendChild(sep);
+      }
+      var g = document.createElement('div'); g.className = 'group';
+      var d = document.createElement('div'); d.className = 'digits';
+      var l = document.createElement('div'); l.className = 'label'; l.textContent = get(s, 'units.' + u) || u;
+      g.appendChild(d); g.appendChild(l);
+      countdownEl.appendChild(g);
+      cells[u] = { el: d, value: null };
+    });
+  }
+
+  function setDigits(cell, str) {
+    if (cell.value === str) return;
+    if (!cell.value || cell.value.length !== str.length) {
+      cell.el.innerHTML = '';
+      for (var i = 0; i < str.length; i++) {
+        var sp = document.createElement('span'); sp.className = 'digit';
+        cell.el.appendChild(sp);
+      }
+    }
+    for (var j = 0; j < str.length; j++) {
+      if (!cell.value || cell.value[j] !== str[j]) cell.el.children[j].textContent = str[j];
+    }
+    cell.value = str;
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+  var liveApplied = false, strings = {};
+  function tick() {
+    var ms = Math.max(0, target - Date.now());
+    var sec = Math.floor(ms / 1000);
+    setDigits(cells.days, pad(Math.floor(sec / 86400)));
+    setDigits(cells.hours, pad(Math.floor(sec / 3600) % 24));
+    setDigits(cells.minutes, pad(Math.floor(sec / 60) % 60));
+    setDigits(cells.seconds, pad(sec % 60));
+    if (ms === 0 && !liveApplied) applyLive();
+    return ms;
+  }
+
+  function applyLive() {
+    liveApplied = true;
+    document.getElementById('cta-label').textContent = get(strings, 'live.cta') || '';
+  }
+
+  function schedule() {
+    var ms = tick();
+    if (ms > 0) setTimeout(schedule, 1000 - (Date.now() % 1000) + 5); // align to second boundary
+  }
+
+  // "October 13, 2026 at 9:00 AM EDT · 3:00 PM GMT+2 your time"
+  // Local part is skipped when the viewer is on ET; it gains a date if the day differs.
+  function formatLaunch(lang, s) {
+    var when = new Date(target);
+    var fmt = function (opts, tz) {
+      var o = { timeZone: tz };
+      for (var k in opts) o[k] = opts[k];
+      return new Intl.DateTimeFormat(lang, o).format(when);
+    };
+    var DATE = { year: 'numeric', month: 'long', day: 'numeric' };
+    var TIME = { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+    var FULL = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+    try {
+      var main = (get(s, 'launchDate') || '{date}').replace('{date}', fmt(FULL, CONFIG.launchTimeZone));
+      var localTz = params.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone; // ?tz= for QA
+      var etTime = fmt({ hour: 'numeric', minute: '2-digit' }, CONFIG.launchTimeZone);
+      var localTime = fmt({ hour: 'numeric', minute: '2-digit' }, localTz);
+      var sameDay = fmt(DATE, CONFIG.launchTimeZone) === fmt(DATE, localTz);
+      if (!localTz || (etTime === localTime && sameDay)) return [main];
+      var local = fmt(sameDay ? TIME : FULL, localTz);
+      return [main, (get(s, 'localTime') || '{time}').replace('{time}', local)];
+    } catch (e) {
+      return [when.toUTCString()];
+    }
+  }
+
+  // ---- Render copy ----
+  function render(lang, s) {
+    strings = s;
+    document.documentElement.lang = lang;
+    document.title = get(s, 'meta.title') || document.title;
+    [].forEach.call(document.querySelectorAll('[data-i18n]'), function (el) {
+      el.textContent = get(s, el.getAttribute('data-i18n')) || '';
+    });
+    document.getElementById('cta-label').textContent = get(s, 'cta') || '';
+    var cta = document.getElementById('cta');
+    cta.href = CONFIG.youtubeUrl;
+
+    var dateEl = document.getElementById('launch-date');
+    dateEl.textContent = '';
+    formatLaunch(lang, s).forEach(function (part, i) {
+      if (i) dateEl.appendChild(document.createTextNode(' \u00b7 '));
+      var sp = document.createElement('span');
+      sp.className = i ? 'date-part local' : 'date-part';
+      sp.textContent = part;
+      dateEl.appendChild(sp);
+    });
+
+    buildCountdown(s);
+    schedule();
+    document.getElementById('stage').classList.add('ready');
+  }
+
+  loadStrings()
+    .then(function (r) { render(r.lang, r.s); })
+    .catch(function (e) { console.error('[hype] strings failed to load', e); });
+
+  // ---- Background + ripple ----
+  // Placeholder: dark field with a fine grid (grid lines make the distortion legible)
+  function placeholderTexture() {
+    var c = document.createElement('canvas');
+    c.width = 1920; c.height = 1080;
+    var x = c.getContext('2d');
+    x.fillStyle = '#0e0e0d'; x.fillRect(0, 0, c.width, c.height);
+    var g = x.createRadialGradient(960, 620, 0, 960, 620, 900);
+    g.addColorStop(0, 'rgba(255, 97, 1, 0.28)');
+    g.addColorStop(0.45, 'rgba(255, 97, 1, 0.08)');
+    g.addColorStop(1, 'rgba(255, 97, 1, 0)');
+    x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+    x.strokeStyle = 'rgba(245, 244, 240, 0.07)'; x.lineWidth = 1;
+    for (var i = 0; i <= c.width; i += 48) { x.beginPath(); x.moveTo(i + .5, 0); x.lineTo(i + .5, c.height); x.stroke(); }
+    for (var j = 0; j <= c.height; j += 48) { x.beginPath(); x.moveTo(0, j + .5); x.lineTo(c.width, j + .5); x.stroke(); }
+    x.fillStyle = 'rgba(245, 244, 240, 0.16)';
+    for (var a = 0; a <= c.width; a += 192) for (var b = 0; b <= c.height; b += 192) x.fillRect(a - 2, b - 2, 5, 5);
+    return c;
+  }
+
+  var canvas = document.getElementById('ripple');
+  var ripple = window.createRipple(canvas, null, CONFIG.ripple);
+  function show(src) {
+    if (!ripple) { // no WebGL: static background
+      document.body.style.background = 'var(--bg) url(' + (src.src || src.toDataURL()) + ') center / cover';
+      return;
+    }
+    ripple.setSource(src);
+    void canvas.offsetWidth; // flush styles so the fade-in transition runs (no rAF: paused in background tabs)
+    canvas.classList.add('ready');
+  }
+  var bgUrl = params.get('bg') || CONFIG.background;
+  if (bgUrl) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () { show(img); };
+    img.onerror = function () { show(placeholderTexture()); };
+    img.src = bgUrl;
+  } else {
+    show(placeholderTexture());
+  }
+})();
+</script>
+</body>
+</html>
