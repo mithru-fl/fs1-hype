@@ -13,6 +13,7 @@
     spacing: 5, dispersion: 1, glint: 0, tint: '#a855f7', tintAmount: 0.1,
     grayscale: false, highlightColor: '#ffffff', trigger: 'hover',
     clickStrength: 2, quality: 'low',
+    maxDpr: 2,          // cap on devicePixelRatio for the output canvas
     ambient: true,      // drifting auto-ripple while nobody is interacting
     ambientDelay: 2500  // ms of inactivity before ambient kicks in
   };
@@ -171,7 +172,8 @@
     var current = 0;
 
     function resize() {
-      var dpr = Math.min(global.devicePixelRatio || 1, 2);
+      var dpr = Math.min(global.devicePixelRatio || 1, CFG.maxDpr);
+      stats.dpr = dpr;
       width = Math.max(1, canvas.clientWidth);
       height = Math.max(1, canvas.clientHeight);
       canvas.width = Math.round(width * dpr);
@@ -242,8 +244,19 @@
 
     var tint = hexToRGB(CFG.tint), hl = hexToRGB(CFG.highlightColor);
 
+    // Debug stats (read via getStats); cheap enough to always collect
+    var stats = { intervals: [], cpu: [], active: 0, ambient: false, dpr: 1, frames: 0, measured: 0, long: 0 };
+    function record(list, v) { list.push(v); if (list.length > 240) list.shift(); }
+
     function frame(now) {
       raf = 0;
+      var t0 = performance.now();
+      // >250ms gaps mean the tab was hidden/paused, not a stutter
+      if (prevT && now - prevT < 250) {
+        record(stats.intervals, now - prevT);
+        stats.measured++;
+        if (now - prevT > 25) stats.long++;
+      }
       var dt = prevT ? Math.min(0.05, (now - prevT) / 1000) : 0;
       prevT = now;
       var ambientOn = ambientTick(now);
@@ -295,6 +308,9 @@
       gl.activeTexture(gl.TEXTURE0);
 
       // Sleep when idle; ambient mode keeps the loop alive
+      stats.active = active; stats.ambient = ambientOn; stats.frames++;
+      record(stats.cpu, performance.now() - t0);
+
       idleFrames = active || ambientOn ? 0 : idleFrames + 1;
       if (visible && idleFrames < 3) raf = requestAnimationFrame(frame);
       else prevT = 0;
@@ -325,6 +341,16 @@
 
     return {
       setSource: setSource,
+      getStats: function () {
+        return {
+          intervals: stats.intervals.slice(), cpu: stats.cpu.slice(),
+          active: stats.active, ambient: stats.ambient, frames: stats.frames,
+          measured: stats.measured, long: stats.long,
+          running: !!raf, dpr: stats.dpr,
+          canvas: [canvas.width, canvas.height], field: [fieldW, fieldH], texture: texSize.slice(),
+          quality: CFG.quality
+        };
+      },
       destroy: function () {
         disposed = true;
         if (raf) cancelAnimationFrame(raf);

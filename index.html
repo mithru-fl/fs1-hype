@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Something New is Taking Form</title>
+<title>Formlabs</title>
 <link rel="preload" href="fonts/Pixter-ArchitektBold.woff2" as="font" type="font/woff2" crossorigin>
 <style>
   @font-face {
@@ -161,7 +161,9 @@
       brushSize: 155, rings: 2, dispersion: 1, spacing: 5,
       strength: 0.2, swirl: 1, spread: 5, fade: 3,
       grayscale: false, tint: '#ff6101', tintAmount: 0.1,
-      quality: 'low', ambient: true
+      quality: 'low',
+      maxDpr: 1,       // bg is blurry; 1x output avoids ~4x GPU work on Retina with no visible loss
+      ambient: false   // idle drift kept the GPU busy nonstop -> thermal throttling / stutter
     }
   };
 
@@ -325,7 +327,14 @@
   }
 
   var canvas = document.getElementById('ripple');
+  var DEBUG = params.has('debug');
+  if (DEBUG) { // A/B overrides, debug only: ?debug&dpr=1&quality=low&ambient=0
+    if (params.has('dpr')) CONFIG.ripple.maxDpr = parseFloat(params.get('dpr')) || 1;
+    if (params.has('quality')) CONFIG.ripple.quality = params.get('quality');
+    if (params.has('ambient')) CONFIG.ripple.ambient = params.get('ambient') !== '0';
+  }
   var ripple = window.createRipple(canvas, null, CONFIG.ripple);
+  if (DEBUG && ripple) debugOverlay(ripple);
   function show(src) {
     if (!ripple) { // no WebGL: static background
       document.body.style.background = 'var(--bg) url(' + (src.src || src.toDataURL()) + ') center / cover';
@@ -335,6 +344,54 @@
     void canvas.offsetWidth; // flush styles so the fade-in transition runs (no rAF: paused in background tabs)
     canvas.classList.add('ready');
   }
+  // ---- ?debug overlay: frame pacing + workload, to diagnose stutter ----
+  function debugOverlay(ripple) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;top:8px;left:8px;z-index:10;pointer-events:none;' +
+      'font:11px/1.45 ui-monospace,Menlo,monospace;color:#e8ffe8;background:rgba(0,0,0,.72);' +
+      'padding:8px 10px;border-radius:6px;white-space:pre;text-align:left;min-width:230px';
+    var text = document.createElement('div');
+    var graph = document.createElement('canvas');
+    graph.width = 240; graph.height = 44;
+    graph.style.cssText = 'display:block;width:240px;height:44px;margin-top:6px';
+    box.appendChild(text); box.appendChild(graph);
+    document.body.appendChild(box);
+    var g = graph.getContext('2d');
+    var start = performance.now();
+
+    function avg(a) { var t = 0; for (var i = 0; i < a.length; i++) t += a[i]; return a.length ? t / a.length : 0; }
+    function pct(a, p) { if (!a.length) return 0; var b = a.slice().sort(function (x, y) { return x - y; }); return b[Math.min(b.length - 1, Math.floor(b.length * p))]; }
+
+    setInterval(function () {
+      var st = ripple.getStats();
+      var iv = st.intervals.slice(-60);
+      var totalFrames = st.measured, totalLong = st.long;
+
+      var mean = avg(iv);
+      var mins = ((performance.now() - start) / 60000).toFixed(1);
+      text.textContent =
+        'fps        ' + (st.running && mean ? (1000 / mean).toFixed(0) : 'idle') + '\n' +
+        'frame ms   avg ' + mean.toFixed(1) + '  p95 ' + pct(iv, 0.95).toFixed(1) + '  max ' + (iv.length ? Math.max.apply(null, iv) : 0).toFixed(1) + '\n' +
+        'js ms      ' + avg(st.cpu.slice(-60)).toFixed(2) + '\n' +
+        'long >25ms ' + totalLong + ' / ' + totalFrames + ' (' + (totalFrames ? (100 * totalLong / totalFrames).toFixed(1) : '0') + '%) over ' + mins + ' min\n' +
+        'waves      ' + st.active + (st.ambient ? '  (ambient)' : '') + '\n' +
+        'canvas     ' + st.canvas[0] + '×' + st.canvas[1] + ' @' + st.dpr + 'x  (' + (st.canvas[0] * st.canvas[1] / 1e6).toFixed(1) + ' MP)\n' +
+        'field      ' + st.field[0] + '×' + st.field[1] + '  quality ' + st.quality + '\n' +
+        'texture    ' + st.texture[0] + '×' + st.texture[1];
+
+      // frame-interval graph: green <= 17ms, amber <= 25ms, red above; line = 16.7ms
+      var bars = st.intervals.slice(-120), w = graph.width / 120, H = graph.height;
+      g.clearRect(0, 0, graph.width, H);
+      bars.forEach(function (v, i) {
+        var h = Math.min(H, (v / 50) * H);
+        g.fillStyle = v <= 17.5 ? '#39d353' : v <= 25 ? '#f2c744' : '#ff5a4f';
+        g.fillRect(i * w, H - h, Math.max(1, w - .5), h);
+      });
+      g.fillStyle = 'rgba(255,255,255,.35)';
+      g.fillRect(0, H - (16.7 / 50) * H, graph.width, 1);
+    }, 250);
+  }
+
   var bgUrl = params.get('bg') || CONFIG.background;
   if (bgUrl) {
     var img = new Image();
