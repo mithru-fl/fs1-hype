@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "全新可能，正在塑造 | Formlabs"
+  },
+  "headline": "全新可能，正在塑造",
+  "units": {
+    "days": "天",
+    "hours": "小时",
+    "minutes": "分钟",
+    "seconds": "秒"
+  },
+  "launchDate": "{date}",
+  "localTime": "当地时间 {time}",
+  "cta": "在 YouTube 上开启提醒",
+  "live": {
+    "cta": "在 YouTube 上观看"
+  }
+}

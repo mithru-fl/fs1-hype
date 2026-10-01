@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "新しいカタチが、いま始まります | Formlabs"
+  },
+  "headline": "新しいカタチが、いま始まります",
+  "units": {
+    "days": "日",
+    "hours": "時間",
+    "minutes": "分",
+    "seconds": "秒"
+  },
+  "launchDate": "{date}",
+  "localTime": "現地時間 {time}",
+  "cta": "YouTubeで通知を受け取る",
+  "live": {
+    "cta": "YouTubeで視聴する"
+  }
+}

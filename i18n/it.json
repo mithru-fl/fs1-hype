@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "Qualcosa di nuovo sta prendendo forma | Formlabs"
+  },
+  "headline": "Qualcosa di nuovo sta prendendo forma",
+  "units": {
+    "days": "Giorni",
+    "hours": "Ore",
+    "minutes": "Minuti",
+    "seconds": "Secondi"
+  },
+  "launchDate": "{date}",
+  "localTime": "{time} ora locale",
+  "cta": "Avvisami su YouTube",
+  "live": {
+    "cta": "Guarda su YouTube"
+  }
+}

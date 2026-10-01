@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "새로운 모습이 드러납니다 | Formlabs"
+  },
+  "headline": "새로운 모습이 드러납니다",
+  "units": {
+    "days": "일",
+    "hours": "시간",
+    "minutes": "분",
+    "seconds": "초"
+  },
+  "launchDate": "{date}",
+  "localTime": "현지 시간 {time}",
+  "cta": "YouTube에서 알림 받기",
+  "live": {
+    "cta": "YouTube에서 시청하기"
+  }
+}
